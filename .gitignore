@@ -1,0 +1,16 @@
+# Node / Clasp credentials
+node_modules/
+.clasprc.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+*.ndjson
+*.zip
+
+# Build / Output
+build/
+dist/

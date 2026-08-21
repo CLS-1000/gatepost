@@ -1,0 +1,23 @@
+{
+  "name": "gatepost",
+  "version": "1.0.0",
+  "description": "Single-operator tamper-evident decision record & governance engine",
+  "main": "gas/Code.gs",
+  "scripts": {
+    "push": "clasp push",
+    "pull": "clasp pull",
+    "test": "python3 -m unittest discover -s test -p 'test_*.py'"
+  },
+  "keywords": [
+    "apps-script",
+    "governance",
+    "tamper-evident",
+    "hashchain",
+    "decision-record"
+  ],
+  "author": "Matthew James",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "@google/clasp": "^2.4.2"
+  }
+}
