@@ -1,0 +1,33 @@
+{
+ "format": "gatepost/v1",
+ "columns": [
+  "seq",
+  "schema",
+  "jurisdiction",
+  "session",
+  "measure",
+  "finding",
+  "severity",
+  "field",
+  "field_value",
+  "history_action",
+  "history_action_date",
+  "current_location",
+  "source_query",
+  "retrieved_at",
+  "prev_hash",
+  "row_hash"
+ ],
+ "row_count": 27,
+ "chain_head": "4786308592d4448cc572656ec2c486cf22c213b96a42d7250a40ef2e5ee3264e",
+ "from_seq": "1",
+ "title": "Oregon Legislature: Measures.Vetoed vs recorded 'Governor vetoed.' actions",
+ "summary": {
+  "measures_with_veto_action": "27",
+  "field_history_contradiction": "23",
+  "consistent": "1",
+  "overridden_into_law": "3"
+ },
+ "veto_query": "https://api.oregonlegislature.gov/odata/odataservice.svc/MeasureHistoryActions?%24filter=substringof%28%27Governor%20vetoed%27%2CActionText%29&%24select=SessionKey%2CMeasurePrefix%2CMeasureNumber%2CActionText%2CActionDate&%24format=json",
+ "schema_name": "proc_track/finding/v1"
+}
