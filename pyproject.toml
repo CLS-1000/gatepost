@@ -1,0 +1,20 @@
+[project]
+name = "gpcanon"
+version = "0.1.0"
+description = "Gatepost gp-canon/1: gate() writer, sealing, and a stdlib-only offline verifier"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+seal = ["cryptography>=42"]
+test = ["pytest>=8", "cryptography>=42"]
+
+[project.scripts]
+gp-verify = "gpcanon.verify:main"
+
+[tool.setuptools]
+packages = ["gpcanon"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
