@@ -129,4 +129,4 @@ python3 ref/check_vectors.py     # Python: strict parser, canon, schema, pure-Py
 node    ref/check_vectors.mjs    # JavaScript: independent parser, UTF-8-byte key sort, Node crypto
 ```
 
-Both report **276 passed, 0 failed** against `gatepost-vectors-v1.json`. The two share no code. Each parses `vectors/chain-spec1.publish.jsonl` itself, rather than trusting the generator's copy of the chain.
+Both report **282 passed, 0 failed** against `gatepost-vectors-v1.json` (276 at G1; six `finding` schema vectors added 2026-09-28). A third implementation, `gpcanon/` in the repo root, passes the same vectors (`test/test_conformance.py`). The two share no code. Each parses `vectors/chain-spec1.publish.jsonl` itself, rather than trusting the generator's copy of the chain.

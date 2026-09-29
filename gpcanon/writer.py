@@ -276,6 +276,46 @@ class Chain:
         s.update(gate_id=g.gate_id, actor=self.actor, detail=detail, result=result)
         self._append(s)
 
+    # ---- findings ------------------------------------------------------------------
+
+    def record_finding(self, subject: str, finding_type: str, claim: str, evidence,
+                       detail: str | None = None, occurred_at: str | None = None) -> dict:
+        """Append a `finding`: a sourced claim that is not a gated action (proc_track, pdx-1i).
+
+        `evidence` is any canonical value. It is written to <chain_dir>/evidence/<hex>.json in
+        canonical form (fsynced before the record), and the record binds it by evidence_digest.
+        Raises CanonError if the evidence is not canonical and ValueError for a malformed type;
+        nothing is written in either case.
+        """
+        if not ID_RE.match(finding_type) or finding_type.split(".")[0] != self.consumer:
+            raise ValueError(f"finding_type {finding_type!r} must be a dotted id under {self.consumer!r}")
+        if not subject or not claim:
+            raise ValueError("subject and claim must be non-empty")
+        body = canon(evidence)                        # raises CanonError before anything is written
+        ev_digest = "sha256:" + hashlib.sha256(body).hexdigest()
+        ev_dir = self.dir / "evidence"
+        ev_dir.mkdir(exist_ok=True)
+        ev_path = ev_dir / f"{ev_digest[7:]}.json"
+        if not ev_path.exists():
+            tmp = ev_dir / f".{ev_digest[7:]}.tmp"
+            with open(tmp, "wb") as f:
+                f.write(body)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp, ev_path)
+            dfd = os.open(ev_dir, os.O_RDONLY)
+            try:
+                os.fsync(dfd)
+            finally:
+                os.close(dfd)
+        with self._locked():
+            seq, prev = self._resolve_dangling()
+            s = self._base("finding", seq, prev, occurred_at or now_ts())
+            s.update(actor=self.actor, subject=subject, finding_type=finding_type, claim=claim,
+                     evidence_digest=ev_digest, detail=detail)
+            h = self._append(s)
+        return {"seq": seq, "h": h, "evidence_digest": ev_digest}
+
     # ---- sealing -------------------------------------------------------------------
 
     def seal(self, private_key) -> dict:

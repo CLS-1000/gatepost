@@ -325,7 +325,7 @@ DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 VERSION = re.compile(r"^[A-Za-z0-9._+-]{1,64}$")
 TS = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$")
 
-KINDS = ("intent", "outcome", "failure", "seal")
+KINDS = ("intent", "outcome", "failure", "seal", "finding")
 DECISIONS = ("allow", "deny")
 REASONS = ("policy_allowed", "policy_denied", "policy_unknown", "policy_raised",
            "policy_prefix_mismatch", "inputs_invalid")
@@ -340,6 +340,7 @@ FIELDS = {
     "outcome": COMMON + GATED + ("result",),
     "failure": COMMON + GATED + ("failure_code",),
     "seal": COMMON + ("key_id",),
+    "finding": COMMON + ("actor", "subject", "finding_type", "claim", "evidence_digest", "detail"),
 }
 NULLABLE = {"detail", "policy_version", "policy_digest", "inputs_digest"}
 
@@ -372,6 +373,9 @@ FORMAT = {
     "occurred_at": _ts_ok,
     "gate_id": lambda v: isinstance(v, str) and bool(HEX32.match(v)),
     "policy_id": lambda v: isinstance(v, str) and bool(ID_RE.match(v)),
+    "finding_type": lambda v: isinstance(v, str) and bool(ID_RE.match(v)),
+    "evidence_digest": lambda v: isinstance(v, str) and bool(DIGEST.match(v)),
+    "claim": _nonempty,
     "policy_version": lambda v: isinstance(v, str) and bool(VERSION.match(v)),
     "policy_digest": lambda v: isinstance(v, str) and bool(DIGEST.match(v)),
     "inputs_digest": lambda v: isinstance(v, str) and bool(DIGEST.match(v)),
@@ -419,7 +423,13 @@ def validate_sealed(s) -> list[tuple[str, str]]:
             continue
         if not FORMAT[f](v):
             errs.append(("bad_field", f"{f}={v!r}"[:120]))
-    if errs or kind != "intent":
+    if errs:
+        return errs
+    if kind == "finding":
+        if s["finding_type"].split(".")[0] != s["chain_id"].split(".")[0]:
+            errs.append(("type_prefix_mismatch", f"{s['finding_type']} on {s['chain_id']}"))
+        return errs
+    if kind != "intent":
         return errs
 
     # SCHEMA §4 intent rules
@@ -443,7 +453,7 @@ def validate_sealed(s) -> list[tuple[str, str]]:
 # ---- gpcanon/verify.py ---------------------------------------------------
 """verify — offline verifier for gp-canon/1 chains. Stdlib only.
 
-usage: python3 verify.py CHAIN_DIR [--pubkey HEX]... [--allow-unpinned]
+usage: python3 verify.py CHAIN_DIR [--pubkey HEX]... [--keyring FILE] [--allow-unpinned]
                          [--anchor FILE] [--policy POLICY_ID=PATH]... [--chain-id ID] [--json]
 
 Exit codes (same meaning as gatepost/v1):
@@ -452,7 +462,12 @@ Exit codes (same meaning as gatepost/v1):
      truncated against an anchor; policy file differs from the recorded digest
   2  signature failure: forged seal, sig missing on a seal or present on a non-seal
   3  malformed: not gp-canon/1 JSON, bad line keys, schema violation
-  4  a seal is signed by a key that is not pinned
+  4  a seal is signed by a key that is not pinned, or outside that key's validity window
+
+Keyring (key rotation): a JSON file {"keys": [{"key_id", "public_key_hex", "effective_from",
+"retired_at"}]}, timestamps in the record format, retired_at may be null. A seal must be
+made (recorded_at) inside its key's window. Get the keyring from somewhere the chain does
+not control, the same as --pubkey.
   5  hashes and pairing check out but nothing is pinned: either no --pubkey was given
      (seals were not verified) or the chain has no seals at all (nothing is signed).
      Pin with --pubkey, using a key obtained from somewhere the chain does not control.
@@ -474,14 +489,14 @@ SEAL_DOMAIN = b"gatepost/seal/v1\n"
 MALFORMED = {"float", "neg_zero", "int_range", "dup_key", "non_nfc", "lone_surrogate", "bad_json",
              "bad_type", "line_key_invalid", "missing_field", "unknown_field", "bad_field",
              "null_not_allowed", "null_required", "decision_reason_mismatch", "policy_prefix_mismatch",
-             "canon_version_unsupported", "torn_line"}
-CHAIN = {"hash_mismatch", "prev_mismatch", "seq_gap", "seq_duplicate", "chain_id_mismatch",
+             "canon_version_unsupported", "torn_line", "type_prefix_mismatch"}
+CHAIN = {"seal_backdated", "hash_mismatch", "prev_mismatch", "seq_gap", "seq_duplicate", "chain_id_mismatch",
          "line_not_canonical", "unpaired", "pairing_invalid", "policy_digest_mismatch",
-         "truncated_tail", "anchor_mismatch"}
+         "truncated_tail", "anchor_mismatch", "evidence_mismatch"}
 SIGNATURE = {"sig_missing", "sig_forbidden", "bad_signature"}
-KEY = {"key_id_mismatch"}
+KEY = {"key_id_mismatch", "key_outside_window"}
 NOTICE = {"unsealed_tail", "tail_unanchored", "unpinned", "dangling_intent", "notes_unverified",
-          "seals_unverified"}
+          "seals_unverified", "evidence_absent"}
 
 
 class Report:
@@ -519,11 +534,50 @@ def _lines(chain_dir: Path, rep: Report):
             yield seg.name, raw
 
 
+def _check_evidence(chain_dir: Path, s: dict, rep: "Report") -> None:
+    """A finding's evidence file, if the pack includes it, must hash to evidence_digest."""
+    path = chain_dir / "evidence" / f"{s['evidence_digest'][7:]}.json"
+    if not path.exists():
+        rep.add("evidence_absent", s["seq"], "evidence file not in this pack; claim is bound but not inspectable")
+        return
+    data = path.read_bytes()
+    if "sha256:" + hashlib.sha256(data).hexdigest() != s["evidence_digest"]:
+        rep.add("evidence_mismatch", s["seq"], "evidence file does not match the digest in the record")
+        return
+    try:
+        if canon(parse(data)) != data:
+            rep.add("evidence_mismatch", s["seq"], "evidence file is not canonical")
+    except CanonError as e:
+        rep.add("evidence_mismatch", s["seq"], f"evidence file is not gp-canon/1 JSON: {e.reason}")
+
+
+def load_keyring(path) -> tuple[dict[str, bytes], dict[str, tuple]]:
+    """Parse a keyring file into (pubkeys, windows). Raises ValueError on any inconsistency."""
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    pubkeys, windows = {}, {}
+    for k in data["keys"]:
+        raw = bytes.fromhex(k["public_key_hex"])
+        if len(raw) != 32:
+            raise ValueError(f"keyring: {k.get('key_id')}: public key must be 32 bytes")
+        kid = hashlib.sha256(raw).hexdigest()[:16]
+        if kid != k["key_id"]:
+            raise ValueError(f"keyring: key_id {k['key_id']} does not match its public key ({kid})")
+        start, end = k.get("effective_from"), k.get("retired_at")
+        for ts in (start, end):
+            if ts is not None and not FORMAT["recorded_at"](ts):
+                raise ValueError(f"keyring: {kid}: bad timestamp {ts!r}")
+        pubkeys[kid] = raw
+        windows[kid] = (start, end)
+    return pubkeys, windows
+
+
 def verify_chain(chain_dir, pubkeys: dict[str, bytes] | None = None, allow_unpinned: bool = False,
                  anchor: dict | None = None, policies: dict[str, str] | None = None,
-                 chain_id: str | None = None) -> Report:
+                 chain_id: str | None = None, windows: dict[str, tuple] | None = None) -> Report:
     rep = Report()
     pubkeys = pubkeys or {}
+    windows = windows or {}
+    last_seal_at = None
     policy_digests = {}
     for pid, path in (policies or {}).items():
         policy_digests[pid] = "sha256:" + hashlib.sha256(Path(path).read_bytes()).hexdigest()
@@ -583,6 +637,15 @@ def verify_chain(chain_dir, pubkeys: dict[str, bytes] | None = None, allow_unpin
                         rep.add("key_id_mismatch", seq, f"sealed by {s['key_id']}, pinned {sorted(pubkeys)}")
                     elif not ed25519_verify(pub, SEAL_DOMAIN + canon(s), bytes.fromhex(sig)):
                         rep.add("bad_signature", seq, "seal signature does not verify")
+                    else:
+                        start, end = windows.get(s["key_id"], (None, None))
+                        at = s["recorded_at"]           # fixed-width UTC strings compare in time order
+                        if (start and at < start) or (end and at >= end):
+                            rep.add("key_outside_window", seq,
+                                    f"{s['key_id']} sealed at {at}, valid {start or '-'} to {end or 'now'}")
+                if last_seal_at and s["recorded_at"] < last_seal_at:
+                    rep.add("seal_backdated", seq, f"sealed at {s['recorded_at']}, before an earlier seal ({last_seal_at})")
+                last_seal_at = max(last_seal_at or "", s["recorded_at"])
             if open_intent:
                 rep.add("pairing_invalid", seq, "seal written while an intent was open")
         elif "sig" in line:
@@ -595,6 +658,10 @@ def verify_chain(chain_dir, pubkeys: dict[str, bytes] | None = None, allow_unpin
             pol = policy_digests.get(s["policy_id"])
             if pol and s["policy_digest"] is not None and s["policy_digest"] != pol:
                 rep.add("policy_digest_mismatch", seq, f"{s['policy_id']}: recorded digest differs from given file")
+        elif kind == "finding":
+            if open_intent:
+                rep.add("pairing_invalid", seq, "finding written while an intent was open")
+            _check_evidence(Path(chain_dir), s, rep)
         elif kind in ("outcome", "failure"):
             if not open_intent or open_intent[0] != s["gate_id"]:
                 rep.add("pairing_invalid", seq, f"{kind} without its intent")
@@ -648,7 +715,7 @@ def main(argv=None) -> int:
     if not args or args[0] in ("-h", "--help"):
         print(__doc__)
         return 3
-    chain_dir, pubkeys, policies, anchor, chain_id = None, {}, {}, None, None
+    chain_dir, pubkeys, policies, anchor, chain_id, windows = None, {}, {}, None, None, {}
     allow_unpinned = as_json = False
     it = iter(args)
     try:
@@ -656,6 +723,10 @@ def main(argv=None) -> int:
             if a == "--pubkey":
                 raw = bytes.fromhex(next(it))
                 pubkeys[hashlib.sha256(raw).hexdigest()[:16]] = raw
+            elif a == "--keyring":
+                kp, kw = load_keyring(next(it))
+                pubkeys.update(kp)
+                windows.update(kw)
             elif a == "--allow-unpinned":
                 allow_unpinned = True
             elif a == "--anchor":
@@ -673,7 +744,7 @@ def main(argv=None) -> int:
                 raise ValueError(f"unexpected argument {a!r}")
         if chain_dir is None:
             raise ValueError("CHAIN_DIR required")
-        rep = verify_chain(chain_dir, pubkeys, allow_unpinned, anchor, policies, chain_id)
+        rep = verify_chain(chain_dir, pubkeys, allow_unpinned, anchor, policies, chain_id, windows)
     except (ValueError, StopIteration, OSError) as e:
         print(f"usage error: {e}", file=sys.stderr)
         return 3

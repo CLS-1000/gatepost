@@ -179,7 +179,7 @@ def decimal_from_float(x: float, places: int) -> str:
 
 # ---------------------------------------------------------------- schema (SCHEMA.md)
 
-KINDS = ("intent", "outcome", "failure", "seal")
+KINDS = ("intent", "outcome", "failure", "seal", "finding")
 COMMON = ("canon_version", "chain_id", "seq", "prev_hash", "kind", "recorded_at", "occurred_at")
 FIELDS = {
     "intent": COMMON + ("gate_id", "policy_id", "policy_version", "policy_digest", "subject",
@@ -187,6 +187,7 @@ FIELDS = {
     "outcome": COMMON + ("gate_id", "result", "detail", "actor"),
     "failure": COMMON + ("gate_id", "failure_code", "detail", "actor"),
     "seal": COMMON + ("key_id",),
+    "finding": COMMON + ("actor", "subject", "finding_type", "claim", "evidence_digest", "detail"),
 }
 REASONS = ("policy_allowed", "policy_denied", "policy_unknown", "policy_raised",
            "policy_prefix_mismatch", "inputs_invalid")
@@ -223,7 +224,7 @@ def _nonempty(v) -> bool:
 def _fmt_ok(field: str, v) -> bool:
     if field == "canon_version":
         return isinstance(v, str)
-    if field in ("chain_id", "policy_id"):
+    if field in ("chain_id", "policy_id", "finding_type"):
         return isinstance(v, str) and bool(RE_DOTTED.match(v))
     if field == "seq":
         return isinstance(v, int) and not isinstance(v, bool) and 0 <= v <= INT_MAX
@@ -237,9 +238,9 @@ def _fmt_ok(field: str, v) -> bool:
         return isinstance(v, str) and bool(RE_HEX32.match(v))
     if field == "policy_version":
         return isinstance(v, str) and bool(RE_VERSION.match(v))
-    if field in ("policy_digest", "inputs_digest"):
+    if field in ("policy_digest", "inputs_digest", "evidence_digest"):
         return isinstance(v, str) and bool(RE_DIGEST.match(v))
-    if field in ("subject", "action", "actor"):
+    if field in ("subject", "action", "actor", "claim"):
         return _nonempty(v)
     if field == "decision":
         return v in ("allow", "deny")
@@ -285,6 +286,9 @@ def validate_sealed(s) -> list[str]:
             errs.append("bad_field")
     if kind == "intent" and not errs:
         errs += _intent_rules(s)
+    if kind == "finding" and not errs:
+        if s["finding_type"].split(".")[0] != s["chain_id"].split(".")[0]:
+            errs.append("type_prefix_mismatch")
     return sorted(set(errs))
 
 

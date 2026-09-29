@@ -154,13 +154,19 @@ def both(d, *args):
     pk = {}
     it = iter(args)
     anchor = None
+    windows = {}
     for a in it:
         if a == "--pubkey":
             raw = bytes.fromhex(next(it))
             pk[W.key_id_of(raw)] = raw
         elif a == "--anchor":
             anchor = json.loads(Path(next(it)).read_text())
-    rep = verify_chain(d, pk, "--allow-unpinned" in args, anchor)
+        elif a == "--keyring":
+            from gpcanon.verify import load_keyring
+            kp, kw = load_keyring(next(it))
+            pk.update(kp)
+            windows.update(kw)
+    rep = verify_chain(d, pk, "--allow-unpinned" in args, anchor, windows=windows)
     assert rep.exit_code() == r.returncode == out["exit"]
     assert sorted(f["code"] for f in rep.findings) == sorted(f["code"] for f in out["findings"])
     return r.returncode, {f["code"] for f in out["findings"]}
@@ -429,3 +435,119 @@ def test_torn_tail_repaired_by_writer(env):
         pass
     env["chain"].seal(env["key"])
     assert both(env["dir"], "--pubkey", env["pub"])[0] == 0
+
+
+# ---------- findings --------------------------------------------------------------------
+
+VETO_EVIDENCE = {"source": "api.oregonlegislature.gov OData", "measures_total": 31405, "vetoed_true": 1,
+                 "history_governor_vetoed": 27, "overridden": 3, "checked_at": "2026-09-28"}
+
+
+def test_finding_recorded_with_evidence_and_verifies(env):
+    c = W.Chain(env["tmp"] / "pt", "proc_track.findings", actor="matt@kali")
+    r = c.record_finding("or.legislature.measures", "proc_track.field_contradicts_history",
+                         "Vetoed is true on 1 measure; 27 record a governor veto in history", VETO_EVIDENCE)
+    ev = env["tmp"] / "pt" / "evidence" / f"{r['evidence_digest'][7:]}.json"
+    assert ev.read_bytes() == canon(VETO_EVIDENCE)
+    c.seal(env["key"])
+    code, codes = both(env["tmp"] / "pt", "--pubkey", env["pub"])
+    assert code == 0 and "evidence_absent" not in codes
+
+
+def test_finding_evidence_tampered_or_missing(env):
+    c = W.Chain(env["tmp"] / "pt", "proc_track.findings", actor="matt@kali")
+    r = c.record_finding("s", "proc_track.x", "claim", VETO_EVIDENCE)
+    c.seal(env["key"])
+    ev = env["tmp"] / "pt" / "evidence" / f"{r['evidence_digest'][7:]}.json"
+    ev.write_bytes(canon(dict(VETO_EVIDENCE, vetoed_true=27)))
+    code, codes = both(env["tmp"] / "pt", "--pubkey", env["pub"])
+    assert code == 1 and "evidence_mismatch" in codes
+    ev.unlink()
+    code, codes = both(env["tmp"] / "pt", "--pubkey", env["pub"])
+    assert code == 0 and "evidence_absent" in codes          # bound, just not inspectable
+
+
+def test_finding_rejects_bad_type_and_non_canonical_evidence(env):
+    c = W.Chain(env["tmp"] / "pt", "proc_track.findings", actor="matt@kali")
+    with pytest.raises(ValueError):
+        c.record_finding("s", "pdx1i.x", "claim", {})
+    with pytest.raises(CanonError):
+        c.record_finding("s", "proc_track.x", "claim", {"ratio": 0.5})
+    assert not list((env["tmp"] / "pt").glob("seg-*.jsonl"))
+    assert not (env["tmp"] / "pt" / "evidence").exists() or not list((env["tmp"] / "pt" / "evidence").iterdir())
+
+
+def test_finding_after_crash_resolves_the_dangling_intent_first(env):
+    c = env["chain"]
+    seq, prev = c._resolve_dangling()
+    s = c._base("intent", seq, prev, W.now_ts())
+    s.update(gate_id="b" * 32, actor="x", detail=None, policy_id="spec1.publish_verdict", subject="s", action="a",
+             decision="allow", reason="policy_allowed", policy_version="1", policy_digest="sha256:" + "0" * 64,
+             inputs_digest=digest({}))
+    c._append(s)
+    c.record_finding("s", "spec1.x", "claim", {"k": 1})
+    assert [r["s"]["kind"] for r in recs(env["dir"])] == ["intent", "failure", "finding"]
+    assert both(env["dir"], "--allow-unpinned")[0] == 0
+
+
+# ---------- key rotation ------------------------------------------------------------------
+
+def _keyring(path, entries):
+    path.write_text(json.dumps({"keys": [
+        {"key_id": kid, "public_key_hex": pub, "effective_from": start, "retired_at": end}
+        for kid, pub, start, end in entries]}))
+    return path
+
+
+def _manual_seal(chain, key, recorded_at):
+    """A seal with a chosen timestamp, signed with a real key: what an insider could forge."""
+    from cryptography.hazmat.primitives import serialization as ser
+    pub = key.public_key().public_bytes(ser.Encoding.Raw, ser.PublicFormat.Raw)
+    with chain._locked():
+        seq, prev = chain._resolve_dangling()
+        s = chain._base("seal", seq, prev, recorded_at)
+        s["recorded_at"] = recorded_at
+        s["key_id"] = W.key_id_of(pub)
+        chain._append(s, sig=key.sign(W.SEAL_DOMAIN + canon(s)).hex())
+
+
+def test_rotation_old_and_new_keys_each_inside_their_window(env):
+    populate(env)                                               # sealed with the old key
+    kid2, pub2 = W.generate_key(env["tmp"] / "new.pem")
+    with env["chain"].gate("spec1.publish_verdict", "n", "publish", {"claims_confirmed": 1, "confidence": "1"}, env["reg"]):
+        pass
+    env["chain"].seal(W.load_private_key(env["tmp"] / "new.pem"))
+    rs = recs(env["dir"])
+    cut = rs[-1]["s"]["recorded_at"]                            # rotate just before the new seal
+    old_seal_at = rs[10]["s"]["recorded_at"]
+    ring = _keyring(env["tmp"] / "ring.json", [(env["kid"], env["pub"], old_seal_at, cut),
+                                                (kid2, pub2, cut, None)])
+    assert both(env["dir"], "--keyring", str(ring))[0] == 0
+
+
+def test_rotation_retired_key_cannot_seal(env):
+    populate(env)
+    first_seal_at = recs(env["dir"])[-1]["s"]["recorded_at"]
+    with env["chain"].gate("spec1.publish_verdict", "n", "publish", {"claims_confirmed": 1, "confidence": "1"}, env["reg"]):
+        pass
+    env["chain"].seal(env["key"])                               # old key used again after retirement
+    ring = _keyring(env["tmp"] / "ring.json", [(env["kid"], env["pub"], None, first_seal_at[:-2] + "9Z")])
+    code, codes = both(env["dir"], "--keyring", str(ring))
+    assert code == 4 and "key_outside_window" in codes
+
+
+def test_rotation_seal_backdated_behind_an_earlier_seal(env):
+    populate(env)
+    first_seal_at = recs(env["dir"])[-1]["s"]["recorded_at"]
+    with env["chain"].gate("spec1.publish_verdict", "n", "publish", {"claims_confirmed": 1, "confidence": "1"}, env["reg"]):
+        pass
+    _manual_seal(env["chain"], env["key"], "2026-01-01T00:00:00.000000Z")
+    code, codes = both(env["dir"], "--pubkey", env["pub"])
+    assert code == 1 and "seal_backdated" in codes
+
+
+def test_keyring_with_a_lying_key_id_is_refused(env):
+    populate(env)
+    ring = _keyring(env["tmp"] / "ring.json", [("0" * 16, env["pub"], None, None)])
+    r = subprocess.run([sys.executable, str(BUNDLE), str(env["dir"]), "--keyring", str(ring)], capture_output=True, text=True)
+    assert r.returncode == 3 and "does not match" in r.stderr

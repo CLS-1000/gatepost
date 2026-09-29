@@ -99,3 +99,31 @@ def test_verifier_catches_tampering_in_the_sample_chain(chain_dir):
     seg.write_bytes(data.replace(b'"decision":"deny"', b'"decision":"allow"', 1))
     rep = verify_chain(chain_dir, {V["test_key"]["key_id"]: PUB})
     assert rep.exit_code() in (1, 3) and rep.codes() & {"hash_mismatch", "decision_reason_mismatch"}
+
+
+def test_schema_table_matches_all_three_implementations():
+    """SCHEMA.md §3's table, gpcanon, and both references must list the same fields per kind."""
+    import importlib.util
+    import re as _re
+    text = (ROOT / "spec" / "SCHEMA.md").read_text(encoding="utf-8")
+    rows = [l for l in text.split("## 3.")[1].split("● required")[0].splitlines() if l.startswith("| `")]
+    header = [h.strip() for h in text.split("## 3.")[1].split("\n| field |")[1].split("\n")[0].split("|")[:-1]]
+    doc = {k: set() for k in header}
+    for row in rows:
+        cells = [c.strip() for c in row.split("|")[1:-1]]
+        for kind, cell in zip(header, cells[1:]):
+            if cell.startswith("●"):
+                doc[kind].add(cells[0].strip("`"))
+    from gpcanon.schema import FIELDS as gp
+    spec = importlib.util.spec_from_file_location("gp_canon_ref", ROOT / "spec" / "ref" / "gp_canon.py")
+    ref = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ref)
+    js = (ROOT / "spec" / "ref" / "gp_canon.mjs").read_text()
+    common = _re.findall(r'"([a-z_]+)"', js.split("const COMMON = [")[1].split("]")[0])
+    shape = js.split("const SHAPE = {")[1].split("};")[0]
+    js_fields = {}
+    for m in _re.finditer(r"(\w+): \[\.\.\.COMMON,([^\]]*)\]", shape):
+        js_fields[m.group(1)] = set(common) | set(_re.findall(r'"([a-z_]+)"', m.group(2)))
+    assert set(doc) == set(gp) == set(ref.FIELDS) == set(js_fields)
+    for kind in doc:
+        assert doc[kind] == set(gp[kind]) == set(ref.FIELDS[kind]) == js_fields[kind], kind

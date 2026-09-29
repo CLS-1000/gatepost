@@ -96,6 +96,10 @@ OUTCOME = base("outcome", gate_id=GID, result="ok", detail=None, actor="spec1.an
 FAILURE = base("failure", gate_id=GID, failure_code="outcome_unwritten", detail="found at next gate() call",
                actor="spec1.analyst_loop")
 SEAL = base("seal", key_id="0f" * 8)
+FINDING = base("finding", actor="spec1.source_audit", subject="or.legislature.measures",
+               finding_type="spec1.field_contradicts_history",
+               claim="Vetoed is true on 1 measure; 27 measures record a governor veto in their history",
+               evidence_digest=DIG, detail=None)
 
 
 def mod(s, drop=(), **kw):
@@ -138,6 +142,13 @@ SCHEMA_CASES = [
     ("s23", "unknown kind", mod(SEAL, kind="genesis"), ["bad_field"]),
     ("s24", "kind absent", mod(SEAL, drop=["kind"]), ["missing_field"]),
     ("s25", "kind inherited from Object.prototype must not pass", mod(SEAL, kind="toString"), ["bad_field"]),
+    ("s26", "valid finding", FINDING, []),
+    ("s27", "finding is not a gated record: gate_id forbidden", mod(FINDING, gate_id=GID), ["unknown_field"]),
+    ("s28", "finding claim empty", mod(FINDING, claim=""), ["bad_field"]),
+    ("s29", "finding without evidence", mod(FINDING, evidence_digest=None), ["null_not_allowed"]),
+    ("s30", "finding_type from another consumer", mod(FINDING, finding_type="pdx1i.field_contradicts_history"),
+     ["type_prefix_mismatch"]),
+    ("s31", "finding detail empty string is valid", mod(FINDING, detail=""), []),
 ]
 
 # ------------------------------------------------------------------ sample chain

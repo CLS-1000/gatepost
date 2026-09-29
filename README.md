@@ -1,5 +1,32 @@
 # Gatepost
 
+A single-operator, tamper-evident decision-record engine. **The gate and the record are the same act**: an action runs only after its decision is on the chain, and anyone can check the chain offline with one file, `bin/verify.py`, without trusting the operator.
+
+**Current format: gp-canon/1.** Spec in `spec/` (CANON.md, SCHEMA.md, golden vectors, two reference implementations). Implementation in `gpcanon/`. Operator steps in [`docs/OPERATOR.md`](docs/OPERATOR.md).
+
+| Path | What |
+|---|---|
+| `spec/` | the format: CANON.md (bytes), SCHEMA.md (records, gate contract, keys), golden vectors + generator, Python and JS references |
+| `gpcanon/` | writer (`Chain.gate()`, `record_finding()`, `seal()`) and verifier. Verifier side is stdlib-only. |
+| `bin/verify.py` | the verifier as one stdlib file for recipients (generated from `gpcanon/`, CI checks it is current) |
+| `tools/gp_operator.py` | keygen, the Oregon veto pack, verify: run on your own machine |
+| `tools/ci.sh` | everything CI runs: vectors in both references, drift checks, stdlib-only check, tests |
+
+```bash
+bash tools/ci.sh                                         # the whole check, same as CI
+python3 bin/verify.py CHAIN_DIR --pubkey <hex> --anchor anchor.json
+```
+
+Exit codes: 0 pass (every seal checked against a pinned key) · 1 chain broken · 2 signature · 3 malformed · 4 key not pinned or outside its window · 5 nothing pinned (not a pass).
+
+Standing rules: single operator, append-only, fail closed (a check that can't run is a failure, never a pass), keys never enter this repo (`*.pem` is ignored), recipients pin the public key from where the operator published it, never from inside a pack.
+
+---
+
+## Legacy: gatepost/v1 (retired 2026-09-28)
+
+The first implementation (RSA-3072, positional encoding), merged as PR #1. Kept as a reference; do not start new chains in it. Its demo pack `out/or_veto_pack_DEMO_KEY/` is signed with a discarded throwaway key and is kept only as the baseline for the Oregon change comparison.
+
 A single-operator, tamper-evident decision-record engine. The gate and the record are the same act; `tools/verify.py` is the product.
 
 ## Standing rules

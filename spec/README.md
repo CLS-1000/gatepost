@@ -7,8 +7,8 @@
 - `tools/gen_vectors.py`: regenerates the vectors (needs `cryptography` for signing; nothing else does)
 
 ```
-python3 ref/check_vectors.py    # Python: 276 passed, 0 failed
-node    ref/check_vectors.mjs   # Node 18+: 276 passed, 0 failed
+python3 ref/check_vectors.py    # Python: 282 passed, 0 failed
+node    ref/check_vectors.mjs   # Node 18+: 282 passed, 0 failed
 ```
 
 The vector chain is signed with a **public test key** whose seed is in the vector file. Never seal a real chain with it.

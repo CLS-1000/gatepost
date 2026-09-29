@@ -180,6 +180,7 @@ const SHAPE = {
   outcome: [...COMMON, "gate_id", "result", "detail", "actor"],
   failure: [...COMMON, "gate_id", "failure_code", "detail", "actor"],
   seal: [...COMMON, "key_id"],
+  finding: [...COMMON, "actor", "subject", "finding_type", "claim", "evidence_digest", "detail"],
 };
 const MAYBE_NULL = new Set(["policy_version", "policy_digest", "inputs_digest", "detail"]);
 const DOTTED = /^[a-z0-9][a-z0-9_-]*(\.[a-z0-9][a-z0-9_-]*)+$/;
@@ -197,6 +198,7 @@ function timestampOk(v) {
 const CHECK = {
   chain_id: (v) => str(v) && DOTTED.test(v),
   policy_id: (v) => str(v) && DOTTED.test(v),
+  finding_type: (v) => str(v) && DOTTED.test(v),
   seq: (v) => typeof v === "number" && Number.isSafeInteger(v) && v >= 0,
   prev_hash: (v) => str(v) && /^[0-9a-f]{64}$/.test(v),
   kind: (v) => typeof v === "string" && Object.hasOwn(SHAPE, v),
@@ -206,9 +208,11 @@ const CHECK = {
   policy_version: (v) => str(v) && /^[A-Za-z0-9._+-]{1,64}$/.test(v),
   policy_digest: (v) => str(v) && /^sha256:[0-9a-f]{64}$/.test(v),
   inputs_digest: (v) => str(v) && /^sha256:[0-9a-f]{64}$/.test(v),
+  evidence_digest: (v) => str(v) && /^sha256:[0-9a-f]{64}$/.test(v),
   subject: (v) => str(v) && v.length > 0,
   action: (v) => str(v) && v.length > 0,
   actor: (v) => str(v) && v.length > 0,
+  claim: (v) => str(v) && v.length > 0,
   decision: (v) => v === "allow" || v === "deny",
   reason: (v) => ["policy_allowed", "policy_denied", "policy_unknown", "policy_raised",
     "policy_prefix_mismatch", "inputs_invalid"].includes(v),
@@ -247,6 +251,9 @@ export function validateSealed(s) {
     if (!invalid && g("inputs_digest") === null) e.add("null_not_allowed");
     const samePrefix = g("policy_id").split(".")[0] === g("chain_id").split(".")[0];
     if ((g("reason") === "policy_prefix_mismatch") === samePrefix) e.add("policy_prefix_mismatch");
+  }
+  if (kind === "finding" && e.size === 0) {
+    if (s.get("finding_type").split(".")[0] !== s.get("chain_id").split(".")[0]) e.add("type_prefix_mismatch");
   }
   return [...e].sort();
 }

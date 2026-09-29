@@ -579,6 +579,50 @@
    "errors": [
     "bad_field"
    ]
+  },
+  {
+   "id": "s26",
+   "note": "valid finding",
+   "sealed": "{\"canon_version\": \"gp-canon/1\", \"chain_id\": \"spec1.publish\", \"seq\": 7, \"prev_hash\": \"abababababababababababababababababababababababababababababababab\", \"kind\": \"finding\", \"recorded_at\": \"2026-09-27T15:00:00.000000Z\", \"occurred_at\": \"2026-09-27T15:00:00.000000Z\", \"actor\": \"spec1.source_audit\", \"subject\": \"or.legislature.measures\", \"finding_type\": \"spec1.field_contradicts_history\", \"claim\": \"Vetoed is true on 1 measure; 27 measures record a governor veto in their history\", \"evidence_digest\": \"sha256:cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd\", \"detail\": null}",
+   "errors": []
+  },
+  {
+   "id": "s27",
+   "note": "finding is not a gated record: gate_id forbidden",
+   "sealed": "{\"canon_version\": \"gp-canon/1\", \"chain_id\": \"spec1.publish\", \"seq\": 7, \"prev_hash\": \"abababababababababababababababababababababababababababababababab\", \"kind\": \"finding\", \"recorded_at\": \"2026-09-27T15:00:00.000000Z\", \"occurred_at\": \"2026-09-27T15:00:00.000000Z\", \"actor\": \"spec1.source_audit\", \"subject\": \"or.legislature.measures\", \"finding_type\": \"spec1.field_contradicts_history\", \"claim\": \"Vetoed is true on 1 measure; 27 measures record a governor veto in their history\", \"evidence_digest\": \"sha256:cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd\", \"detail\": null, \"gate_id\": \"0123456789abcdef0123456789abcdef\"}",
+   "errors": [
+    "unknown_field"
+   ]
+  },
+  {
+   "id": "s28",
+   "note": "finding claim empty",
+   "sealed": "{\"canon_version\": \"gp-canon/1\", \"chain_id\": \"spec1.publish\", \"seq\": 7, \"prev_hash\": \"abababababababababababababababababababababababababababababababab\", \"kind\": \"finding\", \"recorded_at\": \"2026-09-27T15:00:00.000000Z\", \"occurred_at\": \"2026-09-27T15:00:00.000000Z\", \"actor\": \"spec1.source_audit\", \"subject\": \"or.legislature.measures\", \"finding_type\": \"spec1.field_contradicts_history\", \"claim\": \"\", \"evidence_digest\": \"sha256:cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd\", \"detail\": null}",
+   "errors": [
+    "bad_field"
+   ]
+  },
+  {
+   "id": "s29",
+   "note": "finding without evidence",
+   "sealed": "{\"canon_version\": \"gp-canon/1\", \"chain_id\": \"spec1.publish\", \"seq\": 7, \"prev_hash\": \"abababababababababababababababababababababababababababababababab\", \"kind\": \"finding\", \"recorded_at\": \"2026-09-27T15:00:00.000000Z\", \"occurred_at\": \"2026-09-27T15:00:00.000000Z\", \"actor\": \"spec1.source_audit\", \"subject\": \"or.legislature.measures\", \"finding_type\": \"spec1.field_contradicts_history\", \"claim\": \"Vetoed is true on 1 measure; 27 measures record a governor veto in their history\", \"evidence_digest\": null, \"detail\": null}",
+   "errors": [
+    "null_not_allowed"
+   ]
+  },
+  {
+   "id": "s30",
+   "note": "finding_type from another consumer",
+   "sealed": "{\"canon_version\": \"gp-canon/1\", \"chain_id\": \"spec1.publish\", \"seq\": 7, \"prev_hash\": \"abababababababababababababababababababababababababababababababab\", \"kind\": \"finding\", \"recorded_at\": \"2026-09-27T15:00:00.000000Z\", \"occurred_at\": \"2026-09-27T15:00:00.000000Z\", \"actor\": \"spec1.source_audit\", \"subject\": \"or.legislature.measures\", \"finding_type\": \"pdx1i.field_contradicts_history\", \"claim\": \"Vetoed is true on 1 measure; 27 measures record a governor veto in their history\", \"evidence_digest\": \"sha256:cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd\", \"detail\": null}",
+   "errors": [
+    "type_prefix_mismatch"
+   ]
+  },
+  {
+   "id": "s31",
+   "note": "finding detail empty string is valid",
+   "sealed": "{\"canon_version\": \"gp-canon/1\", \"chain_id\": \"spec1.publish\", \"seq\": 7, \"prev_hash\": \"abababababababababababababababababababababababababababababababab\", \"kind\": \"finding\", \"recorded_at\": \"2026-09-27T15:00:00.000000Z\", \"occurred_at\": \"2026-09-27T15:00:00.000000Z\", \"actor\": \"spec1.source_audit\", \"subject\": \"or.legislature.measures\", \"finding_type\": \"spec1.field_contradicts_history\", \"claim\": \"Vetoed is true on 1 measure; 27 measures record a governor veto in their history\", \"evidence_digest\": \"sha256:cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd\", \"detail\": \"\"}",
+   "errors": []
   }
  ],
  "chain": {

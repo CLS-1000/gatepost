@@ -13,7 +13,7 @@ CANON and SCHEMA pages. Python 3.11+, stdlib only except sealing (`cryptography`
 
 ```
 python3 bin/verify.py CHAIN_DIR --pubkey <hex> [--anchor anchor.json] [--policy ID=PATH] [--json]
-python3 -m pytest test/ -q                     # 146 tests: writer, tamper suite (package + bin/verify.py), conformance
+bash tools/ci.sh                               # everything CI runs: both references, drift checks, 167 tests
 ```
 
 Exit codes carry over from gatepost/v1: 0 pass · 1 chain · 2 signature · 3 malformed · 4 unpinned key · 5 nothing pinned.
@@ -27,45 +27,27 @@ reply and the files never reached a repo. The generator is deterministic (fixed 
 clock), and regenerating reproduces the vector files byte for byte.
 
 ```
-python3 spec/ref/check_vectors.py      # Python reference: 276 passed
-node    spec/ref/check_vectors.mjs     # JS reference:     276 passed
-python3 -m pytest test/test_conformance.py -q   # gpcanon: 82 vectors + sample chain, 86 checks
+python3 spec/ref/check_vectors.py      # Python reference: 282 passed
+node    spec/ref/check_vectors.mjs     # JS reference:     282 passed
+python3 -m pytest test/test_conformance.py -q   # gpcanon: all 88 vectors, sample chain, SCHEMA table vs code
 ```
 
 gpcanon shares no code with either reference, so there are now three implementations in agreement.
 Running the vectors caught one real difference, which is fixed: an absent `kind` is `missing_field`
 (vector s24), and `canon_version_unsupported` is collected alongside other errors.
 
-## Where this departs from, or adds to, the spec
+## Spec amendments (2026-09-28)
 
-Each needs a decision on the SCHEMA page before the first real chain freezes it.
-
-1. **Lock held from intent through outcome** (SCHEMA §6 releases it while the body runs). With the
-   split lock, a concurrent `gate()` sees the in-flight intent as dangling (§5.4), writes
-   `outcome_unwritten` for a live action, and its own intent breaks §4 pairing. Tested with four
-   concurrent writers: 40 records, no forks, no false failures.
-2. **A chain with no seals is exit 5, not a pass.** Nothing is signed, so anyone can rewrite it
-   and recompute every hash. `unsealed_tail` after at least one seal stays a notice, as specified.
-3. **A dangling intent at the tail is a notice** (`dangling_intent`); an intent followed by another
-   intent without an outcome is `unpaired` and fails.
-4. **Faults with no valid record raise instead of recording.** Prefix mismatch or an unknown policy
-   combined with invalid inputs: §4 needs `inputs_digest` non-null for those reasons, and it can't
-   be computed. The gate raises and the body never runs (the §5.2 rule).
-5. **Segment naming**: `seg-<first seq, 12 digits>.jsonl`, rotated at 64 MB. SCHEMA doesn't name segments.
-6. **`detail` may be null for any gated kind.** §3 marks it ⁿ, but §4 lists no condition for it.
-7. **Extra report codes**: `torn_line` (malformed), and notices `tail_unanchored`, `dangling_intent`,
-   `notes_unverified`, `seals_unverified`.
+The departures listed here previously are now written into `spec/SCHEMA.md` (header note and §1, §3, §4b, §5, §6, §8, §10), with the vectors and all three implementations updated in the same change: the lock held through the outcome; a chain with no seals is exit 5; a trailing dangling intent is a notice; unrecordable faults raise; segment naming; `detail` nullable in any kind; the new report codes; the `finding` kind; key rotation.
 
 ## Carry-over list (Product Record → Decision)
 
-- [x] Unpinned is not a pass (exit 5; `--allow-unpinned` is explicit)
-- [x] Tamper cases ported to gp-canon codes (flip, delete, reorder, rehash-after-edit, forged seal,
-      cross-chain splice, truncation with and without anchor, swapped policy file, sig on non-seal,
-      non-canonical line, notes edit, torn tail)
-- [ ] Key rotation with validity windows
-- [ ] Partial export with a signed anchor
-- [ ] `finding` kind for proc_track and pdx-1i
-- [ ] Re-seal the Oregon veto findings under gp-canon/1 with the real key
+- [x] Unpinned is not a pass
+- [x] Tamper cases ported (flip, delete, reorder, rehash-after-edit, forged seal, cross-chain splice, truncation with and without anchor, swapped policy file, sig on non-seal, non-canonical line, notes edit, torn tail, evidence tampered/missing, retired key sealing, backdated seal)
+- [x] Key rotation with validity windows (`--keyring`, SCHEMA §10)
+- [x] `finding` kind, with evidence files (SCHEMA §4b; vectors s26–s31)
+- [ ] Partial export with a signed anchor (verifier-only; no format change, so it can wait)
+- [ ] Re-seal the Oregon veto findings with the real key: `tools/gp_operator.py veto-pack`, on your machine (docs/OPERATOR.md)
 
 ## First consumer
 

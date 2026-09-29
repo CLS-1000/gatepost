@@ -17,7 +17,7 @@ DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 VERSION = re.compile(r"^[A-Za-z0-9._+-]{1,64}$")
 TS = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$")
 
-KINDS = ("intent", "outcome", "failure", "seal")
+KINDS = ("intent", "outcome", "failure", "seal", "finding")
 DECISIONS = ("allow", "deny")
 REASONS = ("policy_allowed", "policy_denied", "policy_unknown", "policy_raised",
            "policy_prefix_mismatch", "inputs_invalid")
@@ -32,6 +32,7 @@ FIELDS = {
     "outcome": COMMON + GATED + ("result",),
     "failure": COMMON + GATED + ("failure_code",),
     "seal": COMMON + ("key_id",),
+    "finding": COMMON + ("actor", "subject", "finding_type", "claim", "evidence_digest", "detail"),
 }
 NULLABLE = {"detail", "policy_version", "policy_digest", "inputs_digest"}
 
@@ -64,6 +65,9 @@ FORMAT = {
     "occurred_at": _ts_ok,
     "gate_id": lambda v: isinstance(v, str) and bool(HEX32.match(v)),
     "policy_id": lambda v: isinstance(v, str) and bool(ID_RE.match(v)),
+    "finding_type": lambda v: isinstance(v, str) and bool(ID_RE.match(v)),
+    "evidence_digest": lambda v: isinstance(v, str) and bool(DIGEST.match(v)),
+    "claim": _nonempty,
     "policy_version": lambda v: isinstance(v, str) and bool(VERSION.match(v)),
     "policy_digest": lambda v: isinstance(v, str) and bool(DIGEST.match(v)),
     "inputs_digest": lambda v: isinstance(v, str) and bool(DIGEST.match(v)),
@@ -111,7 +115,13 @@ def validate_sealed(s) -> list[tuple[str, str]]:
             continue
         if not FORMAT[f](v):
             errs.append(("bad_field", f"{f}={v!r}"[:120]))
-    if errs or kind != "intent":
+    if errs:
+        return errs
+    if kind == "finding":
+        if s["finding_type"].split(".")[0] != s["chain_id"].split(".")[0]:
+            errs.append(("type_prefix_mismatch", f"{s['finding_type']} on {s['chain_id']}"))
+        return errs
+    if kind != "intent":
         return errs
 
     # SCHEMA §4 intent rules
