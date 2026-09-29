@@ -6,7 +6,11 @@ Everything here runs on **your machine (Kali)**. The private key is created ther
 
 ```bash
 git clone https://github.com/CLS-1000/gatepost && cd gatepost
-python3 -m pip install --user cryptography        # signing only; the verifier needs nothing
+# signing needs the `cryptography` package; the verifier needs nothing.
+# Kali / Debian / Ubuntu (pip is blocked there with "externally-managed-environment"):
+python3 -c "import cryptography" 2>/dev/null || sudo apt install -y python3-cryptography
+# macOS or other systems: python3 -m venv ~/.gatepost-venv && ~/.gatepost-venv/bin/pip install cryptography
+#   then run the tools with ~/.gatepost-venv/bin/python3 instead of python3
 bash tools/ci.sh                                  # optional: proves your checkout is intact (needs node + pytest)
 ```
 

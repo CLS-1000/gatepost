@@ -20,7 +20,8 @@ the private key must only ever exist where you run this.
   python3 tools/gp_operator.py verify DIR
       Verifies a pack against ~/.gatepost/keyring.json and its anchor.json.
 
-Requires: Python 3.11+, `pip install cryptography` (signing only). Nothing else.
+Requires: Python 3.11+ and the `cryptography` package (signing only). On Kali/Debian:
+`sudo apt install python3-cryptography` (pip is blocked there by design). Nothing else.
 """
 from __future__ import annotations
 
@@ -223,6 +224,15 @@ def verify_pack(out: Path) -> int:
     return code
 
 
+def _need_cryptography() -> None:
+    try:
+        import cryptography  # noqa: F401
+    except ImportError:
+        raise SystemExit("The `cryptography` package is needed to create keys and seal.\n"
+                         "  Kali/Debian/Ubuntu:  sudo apt install -y python3-cryptography\n"
+                         "  elsewhere:           python3 -m venv ~/.gatepost-venv && ~/.gatepost-venv/bin/pip install cryptography")
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(prog="gp_operator", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -234,6 +244,8 @@ def main(argv=None) -> int:
     c = sub.add_parser("verify")
     c.add_argument("dir", type=Path)
     a = p.parse_args(argv)
+    if a.cmd in ("keygen", "veto-pack"):
+        _need_cryptography()
     if a.cmd == "keygen":
         return keygen()
     if a.cmd == "veto-pack":
