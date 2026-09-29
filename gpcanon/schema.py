@@ -80,14 +80,20 @@ FORMAT = {
 
 
 def validate_sealed(s) -> list[tuple[str, str]]:
+    """Every SCHEMA reason code that applies, as (code, detail); [] means valid.
+
+    Error semantics match ref/gp_canon.py and the schema vectors: an absent kind is
+    missing_field, an unknown kind is bad_field, and canon_version_unsupported is
+    collected alongside other errors rather than stopping the check.
+    """
     if not isinstance(s, dict):
         return [("bad_field", "sealed zone is not an object")]
-    if s.get("canon_version") != CANON_VERSION:
-        return [("canon_version_unsupported", repr(s.get("canon_version")))]
     kind = s.get("kind")
     if kind not in KINDS:
-        return [("bad_field", f"kind={kind!r}")]
+        return [("bad_field", f"kind={kind!r}")] if "kind" in s else [("missing_field", "kind")]
     errs = []
+    if "canon_version" in s and s["canon_version"] != CANON_VERSION:
+        errs.append(("canon_version_unsupported", repr(s["canon_version"])))
     want = FIELDS[kind]
     for f in want:
         if f not in s:
@@ -96,7 +102,7 @@ def validate_sealed(s) -> list[tuple[str, str]]:
         if f not in want:
             errs.append(("unknown_field", f))
     for f in want:
-        if f not in s:
+        if f not in s or f == "canon_version":
             continue
         v = s[f]
         if v is None:

@@ -13,19 +13,28 @@ CANON and SCHEMA pages. Python 3.11+, stdlib only except sealing (`cryptography`
 
 ```
 python3 bin/verify.py CHAIN_DIR --pubkey <hex> [--anchor anchor.json] [--policy ID=PATH] [--json]
-python3 -m pytest test/test_gpcanon.py -q      # 56 tests; every tamper case also runs against bin/verify.py
+python3 -m pytest test/ -q                     # 146 tests: writer, tamper suite (package + bin/verify.py), conformance
 ```
 
 Exit codes carry over from gatepost/v1: 0 pass · 1 chain · 2 signature · 3 malformed · 4 unpinned key · 5 nothing pinned.
 
-## Not yet proven
+## Conformance
 
-**Conformance to `gatepost-vectors-v1.json` has not been run.** The G1 package (CANON.md,
-SCHEMA.md, the vector file, `ref/check_vectors.py`/`.mjs`) was delivered as session files and
-never committed; it is not in this repo, the Notion pages or Drive. This implementation was
-written from the Notion text and is checked against the examples that text states (code point
-key order, escapes, the decimal cases, every reject reason). Commit the G1 package here and
-add a runner before any real chain is written: the spec says the vectors win.
+`spec/` holds the G1 package: CANON.md, SCHEMA.md, the golden vectors, the vector generator and
+the two reference implementations (`spec/ref/`, Python and JS). It was recovered on 2026-09-28
+from the G1 session's own file writes after the "Push" request in that session produced an empty
+reply and the files never reached a repo. The generator is deterministic (fixed test-key seed, no
+clock), and regenerating reproduces the vector files byte for byte.
+
+```
+python3 spec/ref/check_vectors.py      # Python reference: 276 passed
+node    spec/ref/check_vectors.mjs     # JS reference:     276 passed
+python3 -m pytest test/test_conformance.py -q   # gpcanon: 82 vectors + sample chain, 86 checks
+```
+
+gpcanon shares no code with either reference, so there are now three implementations in agreement.
+Running the vectors caught one real difference, which is fixed: an absent `kind` is `missing_field`
+(vector s24), and `canon_version_unsupported` is collected alongside other errors.
 
 ## Where this departs from, or adds to, the spec
 
