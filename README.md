@@ -2,7 +2,7 @@
 
 A single-operator, tamper-evident decision-record engine. **The gate and the record are the same act**: an action runs only after its decision is on the chain, and anyone can check the chain offline with one file, `bin/verify.py`, without trusting the operator.
 
-**Current format: gp-canon/1.** Spec in `spec/` (CANON.md, SCHEMA.md, golden vectors, two reference implementations). Implementation in `gpcanon/`. Operator steps in [`docs/OPERATOR.md`](docs/OPERATOR.md).
+**Current format: gp-canon/1.** Spec in `spec/` (CANON.md, SCHEMA.md, golden vectors, two reference implementations). Implementation in `gpcanon/`. Operator steps in [`docs/OPERATOR.md`](docs/OPERATOR.md). Worked example: [`docs/CASE_STUDY_OREGON.md`](docs/CASE_STUDY_OREGON.md), demo with `python3 tools/demo.py`.
 
 | Path | What |
 |---|---|
@@ -10,6 +10,7 @@ A single-operator, tamper-evident decision-record engine. **The gate and the rec
 | `gpcanon/` | writer (`Chain.gate()`, `record_finding()`, `seal()`) and verifier. Verifier side is stdlib-only. |
 | `bin/verify.py` | the verifier as one stdlib file for recipients (generated from `gpcanon/`, CI checks it is current) |
 | `tools/gp_operator.py` | keygen, the Oregon veto pack, verify: run on your own machine |
+| `tools/demo.py` | offline demo: clean verify, then four tamper attempts, each rejected (works on your real pack too) |
 | `tools/ci.sh` | everything CI runs: vectors in both references, drift checks, stdlib-only check, tests |
 
 ```bash

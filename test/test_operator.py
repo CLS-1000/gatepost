@@ -84,3 +84,36 @@ def test_network_failure_writes_nothing(op, tmp_path, monkeypatch):
         op.main(["veto-pack", "--out", str(tmp_path / "p")])
     assert "nothing was written" in str(e.value)
     assert not (tmp_path / "p").exists()
+
+
+def _demo():
+    spec = importlib.util.spec_from_file_location("gp_demo", ROOT / "tools" / "demo.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_offline_demo_runs_every_step(capsys):
+    assert _demo().main([]) == 0
+    out = capsys.readouterr().out
+    for expected in ("VERIFIED", "hash_mismatch", "evidence_mismatch", "key_id_mismatch", "truncated_tail"):
+        assert expected in out
+
+
+def test_demo_on_a_real_pack_leaves_it_untouched(op, tmp_path):
+    import hashlib
+    op.main(["keygen"])
+    fixed = [dict(r, vetoed_field=True, retrieved_at="2026-09-29T03:28:48.884909Z") for r in op.veto_rows_from_v1(V1)]
+    op.veto_rows_live = lambda: fixed
+    assert op.main(["veto-pack", "--out", str(tmp_path / "real"), "--baseline-v1", str(V1)]) == 0
+
+    def tree_hash(d):
+        h = hashlib.sha256()
+        for f in sorted(p for p in d.rglob("*") if p.is_file()):
+            h.update(f.relative_to(d).as_posix().encode() + f.read_bytes())
+        return h.hexdigest()
+
+    before = tree_hash(tmp_path / "real")
+    pub = json.loads((tmp_path / "home" / "keyring.json").read_text())["keys"][0]["public_key_hex"]
+    assert _demo().main(["--pack", str(tmp_path / "real"), "--pubkey", pub]) == 0
+    assert tree_hash(tmp_path / "real") == before
