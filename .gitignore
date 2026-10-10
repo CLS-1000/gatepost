@@ -18,5 +18,3 @@ dist/
 # Signing keys never enter the repo
 *.pem
 *.key
-*.egg-info/
-.env
