@@ -1,19 +1,27 @@
 [project]
-name = "gpcanon"
+name = "gatepost"
 version = "0.1.0"
-description = "Gatepost gp-canon/1: gate() writer, sealing, and a stdlib-only offline verifier"
+description = "Audit-compliance daily briefing CLI, plus the gp-canon/1 decision-record writer and offline verifier"
+readme = "README.md"
+license = { file = "LICENSE" }
 requires-python = ">=3.11"
 dependencies = []
 
 [project.optional-dependencies]
 seal = ["cryptography>=42"]
 test = ["pytest>=8", "cryptography>=42"]
+dev = ["pytest>=8", "cryptography>=42", "ruff>=0.5", "black>=24"]
 
 [project.scripts]
+gatepost = "gatepost.cli:main"
 gp-verify = "gpcanon.verify:main"
 
 [tool.setuptools]
-packages = ["gpcanon"]
+packages = ["gatepost", "gpcanon"]
+
+[tool.setuptools.package-dir]
+gatepost = "src/gatepost"
+gpcanon = "gpcanon"
 
 [build-system]
 requires = ["setuptools>=68"]
@@ -21,5 +29,17 @@ build-backend = "setuptools.build_meta"
 
 [tool.pytest.ini_options]
 # Tests import gpcanon from this checkout, however pytest is invoked (`pytest`, `python -m pytest`, an IDE).
-pythonpath = ["."]
-testpaths = ["test"]
+pythonpath = [".", "src"]
+testpaths = ["test", "tests"]
+
+[tool.black]
+line-length = 88
+target-version = ["py311"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

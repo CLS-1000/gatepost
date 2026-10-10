@@ -1,5 +1,61 @@
 # Gatepost
 
+## Daily brief (v1)
+
+`gatepost brief` ingests monitoring signals from a JSON file, classifies them against a confidence threshold, and writes a deterministic Markdown daily brief (same input + config + date = byte-identical output).
+
+### 5-minute quickstart
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
+cp .env.example .env
+gatepost brief --date 2026-04-12 --input tests/fixtures/signals_low_confidence.json --output brief.md
+cat brief.md
+```
+
+Exit code is `0` on success, `1` on config/input/output errors (message on stderr).
+
+### Configuration
+
+Precedence: process environment > `.env` in the working directory > optional TOML defaults file (`GATEPOST_DEFAULTS_FILE`, e.g. `configs/defaults.toml`).
+
+| Key | Required | Default | Meaning |
+|---|---|---|---|
+| `COMM_TONE` | yes | none | tone of the brief (e.g. `formal`) |
+| `COMM_LANGUAGE` | yes | none | language code (e.g. `en`) |
+| `COMM_SOURCE_TYPE` | yes | none | source type (e.g. `official monitoring systems`) |
+| `COMM_FORMAT` | yes | none | output format (e.g. `markdown`) |
+| `ELEVATED_THRESHOLD` | no | `0.70` | signal is elevated if `confidence >= threshold` (0 to 1) |
+
+### Input format
+
+A JSON array of objects with `id`, `source`, `category`, `confidence` (0 to 1), `summary`, `timestamp` (ISO 8601). Ids must be unique.
+
+### Sample output
+
+```markdown
+## SPEC-1 DAILY BRIEF — 2026-04-12
+
+### Executive Summary
+No elevated signals triggered today. All harvested signals were below threshold (0.70). Signals reviewed: 2.
+
+### Elevated Signals
+None.
+
+Communication:
+- tone: formal
+- language: en
+- source_type: official monitoring systems
+- format: markdown
+```
+
+Development: `ruff check src tests && black --check src tests && pytest`.
+
+---
+
+## Decision-record engine
+
 A single-operator, tamper-evident decision-record engine. **The gate and the record are the same act**: an action runs only after its decision is on the chain, and anyone can check the chain offline with one file, `bin/verify.py`, without trusting the operator.
 
 **Current format: gp-canon/1.** Spec in `spec/` (CANON.md, SCHEMA.md, golden vectors, two reference implementations). Implementation in `gpcanon/`. Operator steps in [`docs/OPERATOR.md`](docs/OPERATOR.md). Worked example: [`docs/CASE_STUDY_OREGON.md`](docs/CASE_STUDY_OREGON.md), demo with `python3 tools/demo.py`.
