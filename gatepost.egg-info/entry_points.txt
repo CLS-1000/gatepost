@@ -1,0 +1,3 @@
+[console_scripts]
+gatepost = gatepost.cli:main
+gp-verify = gpcanon.verify:main

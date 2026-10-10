@@ -1,0 +1,18 @@
+[
+  {
+    "id": "sig-002",
+    "source": "access-log-monitor",
+    "category": "access-control",
+    "confidence": 0.42,
+    "summary": "Unusual after-hours login pattern.",
+    "timestamp": "2026-04-12T03:15:00Z"
+  },
+  {
+    "id": "sig-001",
+    "source": "config-drift-monitor",
+    "category": "change-management",
+    "confidence": 0.55,
+    "summary": "Minor configuration drift on staging host.",
+    "timestamp": "2026-04-12T01:00:00Z"
+  }
+]
