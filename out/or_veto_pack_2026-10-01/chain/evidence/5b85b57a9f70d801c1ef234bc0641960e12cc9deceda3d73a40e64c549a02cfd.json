@@ -1,0 +1,1 @@
+{"counts":{"consistent":27,"overridden_into_law_total":3},"measures":27,"retrieved_at":"2026-10-02T01:35:44.075436Z","veto_query":"https://api.oregonlegislature.gov/odata/odataservice.svc/MeasureHistoryActions?%24filter=substringof%28%27Governor%20vetoed%27%2CActionText%29&%24select=SessionKey%2CMeasurePrefix%2CMeasureNumber%2CActionText%2CActionDate&%24format=json"}
