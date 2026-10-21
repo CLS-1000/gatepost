@@ -551,3 +551,26 @@ def test_keyring_with_a_lying_key_id_is_refused(env):
     ring = _keyring(env["tmp"] / "ring.json", [("0" * 16, env["pub"], None, None)])
     r = subprocess.run([sys.executable, str(BUNDLE), str(env["dir"]), "--keyring", str(ring)], capture_output=True, text=True)
     assert r.returncode == 3 and "does not match" in r.stderr
+
+
+# ---------- bundle ----------------------------------------------------------------
+
+def test_bundle_help_prints_the_package_docstring():
+    """bin/verify.py --help printed `None`: the bundler put `from __future__` first,
+    so no inlined docstring was the module's. A recipient's first command is --help."""
+    import gpcanon.verify as package_verify
+
+    r = subprocess.run([sys.executable, str(BUNDLE), "--help"],
+                       capture_output=True, text=True)
+    assert r.returncode == 3
+    assert r.stdout.strip() == package_verify.__doc__.strip()
+
+
+def test_bundle_is_what_the_bundler_builds():
+    """bin/verify.py is generated; a hand edit (or a stale rebuild) fails here."""
+    sys.path.insert(0, str(ROOT / "tools"))
+    try:
+        import bundle_verify
+    finally:
+        sys.path.pop(0)
+    assert BUNDLE.read_text() == bundle_verify.build()
