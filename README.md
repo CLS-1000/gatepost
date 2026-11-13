@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/brand/gatepost-banner.png" alt="gatepost" width="100%"></p>
+
 # Gatepost
 
 Gatepost is a single-operator, tamper-evident decision-record engine, plus a small
