@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="512" height="512" viewBox="0 0 240 240" role="img" aria-label="gatepost mark: a pointed arch drawn from a vesica piscis, with a keyhole that forms a check mark" style="filter: drop-shadow(3px 4px 0 #050B14)">
+<defs>
+<symbol id="sgp-mark" viewBox="0 0 240 240">
+<circle cx="80" cy="150" r="80" fill="none" stroke="#5E7591" stroke-width="1" opacity="0.8"></circle>
+<circle cx="160" cy="150" r="80" fill="none" stroke="#5E7591" stroke-width="1" opacity="0.8"></circle>
+<line x1="80" y1="150" x2="160" y2="150" stroke="#8FA3B8" stroke-width="1"></line>
+<line x1="120" y1="56" x2="120" y2="214" stroke="#5E7591" stroke-width="0.9" opacity="0.7"></line>
+<path d="M64 200 L64 150 A96 96 0 0 1 120 62.7 A96 96 0 0 1 176 150 L176 200 Z" fill="#5E7591"></path>
+<path d="M64 200 L64 150 A96 96 0 0 1 120 62.7" fill="none" stroke="#D7DEE6" stroke-width="2"></path>
+<path d="M80 200 L80 150 A80 80 0 0 1 120 80.7 A80 80 0 0 1 160 150 L160 200 Z" fill="#0E1A2B" stroke="#D7DEE6" stroke-width="1.4"></path>
+<circle cx="80" cy="150" r="3" fill="#D7DEE6"></circle>
+<circle cx="160" cy="150" r="3" fill="#D7DEE6"></circle>
+<line x1="30" y1="200" x2="210" y2="200" stroke="#D7DEE6" stroke-width="1.6"></line>
+<circle cx="120" cy="54" r="6" fill="#D7DEE6"></circle>
+<circle cx="118" cy="52" r="2" fill="#FFFFFF" opacity="0.7"></circle>
+<circle cx="120" cy="124" r="15" fill="#F26A1B" opacity="0.2"></circle>
+<circle cx="120" cy="124" r="8" fill="#F26A1B"></circle>
+<path d="M108 150 L117 161 L134 138" fill="none" stroke="#F26A1B" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"></path>
+<path d="M109 149 L117 159 L133 137" fill="none" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity="0.3"></path>
+</symbol>
+</defs>
+<use href="#sgp-mark" width="240" height="240"></use>
+</svg>
