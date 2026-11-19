@@ -19,8 +19,8 @@ import shutil
 import sys
 from typing import TextIO
 
-NAME = 'GATEPOST'
-SUBTITLE = 'AUDIT BRIEFING / DECISION RECORDS'
+NAME = "GATEPOST"
+SUBTITLE = "AUDIT BRIEFING / DECISION RECORDS"
 
 # Four-gate block: one cell, upper-left + lower-right quadrants.
 GLYPH = "\u259a"
